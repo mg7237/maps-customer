@@ -192,7 +192,7 @@ class _MapScreenState extends State<MapScreen> {
 
     // do this inside the setState() so Flutter gets notified
     // that a widget update is due
-
+    setPolylines();
     setState(() {
       //controller.animateCamera(CameraUpdate.newCameraPosition(cPosition));
       // updated driver position

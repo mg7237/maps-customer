@@ -2,11 +2,7 @@ import 'package:customer/model.dart';
 import 'package:flutter/material.dart';
 import 'package:customer/map.dart';
 import 'package:customer/distance_calculator.dart';
-import 'package:flutter_google_places/flutter_google_places.dart';
-import 'package:google_maps_webservice/places.dart';
-import 'package:customer/constants.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:customer/alert_dialog.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -25,7 +21,7 @@ class _MyAppState extends State<MyApp> {
   bool gotPermissions = false;
   bool logintoFirebase = true;
   bool tripStarted = false;
-  int tripId = 45;
+  int tripId = 65;
   LatLng driverLatLng;
   LatLng targetLatLng;
   // hardcoded, this should come to app via Flutter background process so that it is synchronized between Driver and Client apps
