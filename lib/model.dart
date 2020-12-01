@@ -5,20 +5,32 @@ class DriverLocation {
   int tripId;
   double lat;
   double long;
+  double targetLat;
+  double targetLong;
 
-  DriverLocation({this.tripId, this.lat, this.long});
+  DriverLocation(
+      {this.tripId,
+      this.lat,
+      this.long,
+      this.targetLat,
+      this.targetLong,
+      this.key});
 
   DriverLocation.fromSnapshot(DataSnapshot snapshot)
       : key = snapshot.key,
         tripId = snapshot.value["tripId"],
         lat = snapshot.value["lat"],
-        long = snapshot.value["long"];
+        long = snapshot.value["long"],
+        targetLat = snapshot.value["targetLat"],
+        targetLong = snapshot.value["targetLong"];
 
   toJson() {
     return {
       "tripId": tripId,
       "lat": lat,
       "long": long,
+      "targetLat": targetLat,
+      "targetLong": targetLong,
     };
   }
 }

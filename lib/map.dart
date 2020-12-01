@@ -10,16 +10,19 @@ import 'package:customer/alert_dialog.dart';
 
 class MapScreen extends StatefulWidget {
   final int tripId;
-  MapScreen({this.tripId});
+  final LatLng driverLocation;
+  final LatLng targetLatLng;
+
+  MapScreen({this.tripId, this.driverLocation, this.targetLatLng});
   @override
   _MapScreenState createState() => _MapScreenState();
 }
 
 class _MapScreenState extends State<MapScreen> {
-  static const double CAMERA_ZOOM = 15;
-  static const double CAMERA_TILT = 80;
-  static const double CAMERA_BEARING = 30;
-  String status = "Driver Started";
+  static const double CAMERA_ZOOM = 18;
+  static const double CAMERA_TILT = 0;
+  static const double CAMERA_BEARING = 0;
+  String status;
 
   final dbRefActiveDriver =
       FirebaseDatabase.instance.reference().child("active_driver");
@@ -27,8 +30,7 @@ class _MapScreenState extends State<MapScreen> {
       FirebaseDatabase.instance.reference().child("driver_location");
   int tripId;
   LatLng destLocation;
-  LatLng driverLatLng = LatLng(27.0858, 80.314003);
-  // Default India Lat Lang used as temporary starting point to avoid null error on page load
+  LatLng driverLatLng;
 
   Completer<GoogleMapController> _controller = Completer();
   Set<Marker> _markers = Set<Marker>();
@@ -46,7 +48,6 @@ class _MapScreenState extends State<MapScreen> {
   Location location;
   String uid;
   ActiveDriver activeDriver;
-  DriverLocation driverLocation;
   String activeDriverKey;
   String driverLocationKey;
   DriverLocation _driverPosition;
@@ -57,21 +58,7 @@ class _MapScreenState extends State<MapScreen> {
       // create an instance of Location
       location = new Location();
       location.changeSettings(
-          accuracy: LocationAccuracy.navigation, interval: 1000);
-
-      // create instance of Destination Location which is the customer device location
-
-      destinationLocation = await location.getLocation();
-      destLocation =
-          LatLng(destinationLocation.latitude, destinationLocation.longitude);
-
-      // Temporary hard coding of destination to a seperate location (which sould actually be current location of the customer)
-      // otherwise the driver location and destination location will be same while running both apps
-      destLocation = LatLng(12.96006, 77.75122);
-      destinationLocation = LocationData.fromMap({
-        "latitude": 12.96006,
-        "longitude": 77.75122,
-      });
+          accuracy: LocationAccuracy.navigation, interval: 2000);
 
       // End target location hard coding
 
@@ -80,12 +67,8 @@ class _MapScreenState extends State<MapScreen> {
       // subscribe to changes in the user's location
       // by "listening" to the location's onLocationChanged event
 
-      // Create trip id
-      tripId = widget.tripId;
-
       Query _activeDriver =
           dbRefActiveDriver.orderByChild("tripId").equalTo(tripId);
-      //  Hard coding
 
       _activeDriver.onChildChanged.listen((event) {
         ActiveDriver newDriver = ActiveDriver.fromSnapshot(event.snapshot);
@@ -95,14 +78,13 @@ class _MapScreenState extends State<MapScreen> {
         }
       });
 
-      Query _driverLocation =
+      Query _driverLocationQuery =
           dbRefDriverLocation.orderByChild("tripId").equalTo(tripId);
 
-      _driverLocation.onChildAdded.listen((event) {
+      _driverLocationQuery.onChildAdded.listen((event) {
         _driverPosition = DriverLocation.fromSnapshot(event.snapshot);
         driverLatLng = LatLng(_driverPosition.lat, _driverPosition.long);
         updatePinOnMap();
-        showPinsOnMap();
       });
 
       // set custom marker pins
@@ -117,7 +99,15 @@ class _MapScreenState extends State<MapScreen> {
   @override
   void initState() {
     super.initState();
-
+    driverLatLng = widget.driverLocation;
+    destLocation = widget.targetLatLng;
+    destinationLocation = LocationData.fromMap({
+      "latitude": destLocation.latitude,
+      "longitude": destLocation.longitude,
+    });
+    // Create trip id
+    tripId = widget.tripId;
+    status = "Trip Started - $tripId";
     _startAsyncJobs();
   }
 
@@ -134,7 +124,7 @@ class _MapScreenState extends State<MapScreen> {
     // get a LatLng for the source location
     // from the LocationData currentLocation object
 
-    if (driverLocation == null || destLocation == null) {
+    if (driverLatLng == null || destLocation == null) {
       await new Future.delayed(const Duration(seconds: 1));
     }
     var pinPosition = driverLatLng;
@@ -156,29 +146,31 @@ class _MapScreenState extends State<MapScreen> {
 
   void setPolylines() async {
     polylineCoordinates = [];
-    PolylineResult result = await polylinePoints.getRouteBetweenCoordinates(
-        k_googleAPIKey,
-        PointLatLng(driverLatLng.latitude, driverLatLng.longitude),
-        PointLatLng(destLocation.latitude, destLocation.longitude),
-        travelMode: TravelMode.driving);
-    if (result.points.isNotEmpty) {
-      result.points.forEach((PointLatLng point) {
-        polylineCoordinates.add(LatLng(point.latitude, point.longitude));
-      });
-      if (!this.mounted) {
-        return;
+    if (driverLatLng != null && destLocation != null) {
+      PolylineResult result = await polylinePoints.getRouteBetweenCoordinates(
+          k_googleAPIKey,
+          PointLatLng(driverLatLng.latitude, driverLatLng.longitude),
+          PointLatLng(destLocation.latitude, destLocation.longitude),
+          travelMode: TravelMode.driving);
+      if (result.points.isNotEmpty) {
+        result.points.forEach((PointLatLng point) {
+          polylineCoordinates.add(LatLng(point.latitude, point.longitude));
+        });
+        if (!this.mounted) {
+          return;
+        }
+        setState(() {
+          PolylineId id = PolylineId("poly");
+          Polyline polyline = Polyline(
+              polylineId: id, color: Colors.red, points: polylineCoordinates);
+          _polylines[id] = polyline;
+          // _polylines.add(Polyline(
+          //     width: 5, // set the width of the polylines
+          //     polylineId: PolylineId('poly'),
+          //     color: Color(0xff287ac6),
+          //     points: polylineCoordinates));
+        });
       }
-      setState(() {
-        PolylineId id = PolylineId("poly");
-        Polyline polyline = Polyline(
-            polylineId: id, color: Colors.red, points: polylineCoordinates);
-        _polylines[id] = polyline;
-        // _polylines.add(Polyline(
-        //     width: 5, // set the width of the polylines
-        //     polylineId: PolylineId('poly'),
-        //     color: Color(0xff287ac6),
-        //     points: polylineCoordinates));
-      });
     }
   }
 
@@ -186,13 +178,13 @@ class _MapScreenState extends State<MapScreen> {
     // create a new CameraPosition instance
     // every time the location changes, so the camera
     // follows the pin as it moves with an animation
-    CameraPosition cPosition = CameraPosition(
-      zoom: CAMERA_ZOOM,
-      tilt: CAMERA_TILT,
-      bearing: CAMERA_BEARING,
-      target: LatLng(driverLatLng.latitude, driverLatLng.longitude),
-    );
-    final GoogleMapController controller = await _controller.future;
+    // CameraPosition cPosition = CameraPosition(
+    //   zoom: CAMERA_ZOOM,
+    //   tilt: CAMERA_TILT,
+    //   bearing: CAMERA_BEARING,
+    //   target: LatLng(driverLatLng.latitude, driverLatLng.longitude),
+    // );
+    // final GoogleMapController controller = await _controller.future;
 
     if (!this.mounted) {
       return;
@@ -217,12 +209,8 @@ class _MapScreenState extends State<MapScreen> {
 
   @override
   Widget build(BuildContext context) {
-    CameraPosition initialCameraPosition = CameraPosition(
-        zoom: CAMERA_ZOOM,
-        tilt: CAMERA_TILT,
-        bearing: CAMERA_BEARING,
-        target: driverLatLng);
-    if (driverLocation != null) {
+    CameraPosition initialCameraPosition;
+    if (driverLatLng != null) {
       initialCameraPosition = CameraPosition(
           target: LatLng(driverLatLng.latitude, driverLatLng.longitude),
           zoom: CAMERA_ZOOM,
@@ -248,10 +236,6 @@ class _MapScreenState extends State<MapScreen> {
                     markerId: MarkerId('destPin'),
                     position: latLong, // updated position
                     icon: destinationIcon));
-                destinationLocation = LocationData.fromMap({
-                  "latitude": latLong.latitude,
-                  "longitude": latLong.longitude
-                });
                 destLocation = LatLng(destinationLocation.latitude,
                     destinationLocation.longitude);
                 setPolylines();
