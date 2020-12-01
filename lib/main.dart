@@ -1,6 +1,7 @@
 import 'package:customer/model.dart';
 import 'package:flutter/material.dart';
 import 'package:customer/map.dart';
+import 'package:customer/distance_calculator.dart';
 import 'package:flutter_google_places/flutter_google_places.dart';
 import 'package:google_maps_webservice/places.dart';
 import 'package:customer/constants.dart';
@@ -24,7 +25,7 @@ class _MyAppState extends State<MyApp> {
   bool gotPermissions = false;
   bool logintoFirebase = true;
   bool tripStarted = false;
-  int tripId = 25;
+  int tripId = 45;
   LatLng driverLatLng;
   LatLng targetLatLng;
   // hardcoded, this should come to app via Flutter background process so that it is synchronized between Driver and Client apps
@@ -94,6 +95,12 @@ class _MyAppState extends State<MyApp> {
     await checkPermission();
     //await loginToFirebase();
     getDriverLocation();
+  }
+
+  printLocation() async {
+    DriverLatLong driverLatLong = await DriverLatLong().getCurrentLocation();
+    print(
+        "Current driver location lat - ${driverLatLong.lat} long  - ${driverLatLong.lat}");
   }
 
   @override
